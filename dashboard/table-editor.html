@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Table Editor</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              dark: {
+                100: "#060606",
+                200: "#0e0e0e",
+                300: "#171717",
+                400: "#262626",
+                500: "#343434",
+                600: "#757575",
+                700: "#A1A1A1",
+              },
+              green: {
+                500: "#4575b8",
+                600: "#073f8c",
+              },
+            },
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+              mono: [
+                "Fira Code",
+                "Monaco",
+                "Cascadia Code",
+                "Roboto Mono",
+                "Consolas",
+                "monospace",
+              ],
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      /* Supabase style focus outline */
+      input:focus,
+      select:focus {
+        outline: 2px solid #4575b8 !important;
+        outline-offset: 2px;
+        border-color: transparent !important;
+      }
+
+      /* Right sidebar for create table form */
+      #create-table-sidebar {
+        transition: transform 0.3s ease-in-out;
+        transform: translateX(100%);
+      }
+
+      #create-table-sidebar.open {
+        transform: translateX(0);
+      }
+
+      /* Blur overlay for the main content */
+      #main-overlay {
+        transition: opacity 0.3s ease-in-out, backdrop-filter 0.3s ease-in-out;
+        opacity: 0;
+        pointer-events: none;
+        backdrop-filter: blur(0px);
+      }
+
+      #main-overlay.open {
+        opacity: 1;
+        pointer-events: auto;
+        backdrop-filter: blur(4px);
+      }
+
+      /* VS Code-like syntax highlighting */
+      .sql-editor {
+        background: #1e1e1e;
+        color: #d4d4d4;
+        font-family: "Fira Code", "Monaco", "Cascadia Code", "Roboto Mono",
+          "Consolas", monospace;
+        font-size: 13px;
+        line-height: 1.4;
+        padding: 16px;
+        border-radius: 6px;
+        border: 1px solid #3c3c3c;
+        overflow-x: auto;
+        white-space: pre;
+      }
+
+      .sql-keyword {
+        color: #569cd6;
+      }
+      .sql-string {
+        color: #ce9178;
+      }
+      .sql-number {
+        color: #b5cea8;
+      }
+      .sql-comment {
+        color: #6a9955;
+      }
+      .sql-identifier {
+        color: #9cdcfe;
+      }
+      .sql-operator {
+        color: #d4d4d4;
+      }
+    </style>
+  </head>
+  <body class="bg-dark-100 text-dark-700 min-h-screen font-sans">
+    <div class="p-8 relative">
+      <div class="flex items-center justify-between mb-8">
+        <div class="flex items-center space-x-4">
+          <div>
+            <h1 class="text-3xl font-bold mb-2 text-white">Table Editor</h1>
+            <p class="text-dark-600">Manage your database tables and data</p>
+          </div>
+        </div>
+        <button
+          class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+          onclick="openCreateTableForm()"
+        >
+          <i class="fas fa-plus"></i>
+          <span>New Table</span>
+        </button>
+      </div>
+
+      <div class="flex h-[calc(100vh-200px)]">
+        <!-- Left sidebar for table list -->
+        <div class="w-64 bg-dark-200 rounded-lg border border-dark-400 mr-6">
+          <div class="p-4 border-b border-dark-400">
+            <h3 class="font-semibold text-white mb-2">Tables</h3>
+            <div class="relative">
+              <input
+                type="text"
+                placeholder="Filter tables..."
+                class="w-full bg-dark-100 border border-dark-400 rounded-md px-3 py-2 text-sm text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <i
+                class="fas fa-search absolute right-3 top-2.5 text-dark-600 text-sm"
+              ></i>
+            </div>
+          </div>
+
+          <!-- Table list container -->
+          <div
+            id="table-list-container"
+            class="p-2 h-[calc(100%-80px)] overflow-y-auto space-y-1"
+          >
+            <span class="text-dark-600 text-sm p-2 block"
+              >Loading tables...</span
+            >
+          </div>
+        </div>
+
+        <!-- Main content area for table data -->
+        <div
+          class="flex-1 bg-dark-200 rounded-lg border border-dark-400"
+          id="table-content"
+        >
+          <div class="flex items-center justify-center h-full text-dark-600">
+            Select a table from the left to view its data.
+          </div>
+        </div>
+      </div>
+
+      <!-- Overlay for sidebars -->
+      <div
+        id="main-overlay"
+        class="absolute inset-0 bg-dark-100/50 z-10"
+        style="display: none"
+      ></div>
+
+      <!-- Reusable sidebar for forms -->
+      <div
+        id="create-table-sidebar"
+        class="absolute inset-y-0 right-0 w-[800px] bg-dark-200 border-l border-dark-400 p-8 shadow-2xl overflow-y-auto z-20"
+      ></div>
+
+      <script>
+        // --- Global State ---
+        window.columnsTypes = null;
+        window.currentTableName = null;
+
+        // --- Sidebar Management ---
+
+        function openSidebar() {
+            const sidebar = document.getElementById("create-table-sidebar");
+            const overlay = document.getElementById("main-overlay");
+            sidebar.classList.add("open");
+            overlay.style.display = 'block';
+            setTimeout(() => overlay.classList.add("open"), 10); // Delay for transition
+            document.body.style.overflow = "hidden";
+        }
+
+        function closeSidebar() {
+            const sidebar = document.getElementById("create-table-sidebar");
+            const overlay = document.getElementById("main-overlay");
+            sidebar.classList.remove("open");
+            overlay.classList.remove("open");
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                sidebar.innerHTML = ''; // Clear content after closing
+            }, 300); // Match transition duration
+            document.body.style.overflow = "auto";
+        }
+
+        document.getElementById("main-overlay").addEventListener("click", closeSidebar);
+
+        function openCreateTableForm() {
+            const sidebar = document.getElementById("create-table-sidebar");
+            htmx.ajax("GET", "/dashboard/create-table", {
+                target: sidebar,
+                swap: "innerHTML",
+            }).then(() => {
+                openSidebar();
+            }).catch(error => {
+                console.error("HTMX Error:", error);
+                sidebar.innerHTML = '<p class="text-red-500">Failed to load form. Please try again.</p>';
+                openSidebar();
+            });
+        }
+
+        function openInsertForm() {
+            if (!window.columnsTypes || !window.currentTableName) {
+                showCustomAlert('Please select a table first before inserting data.', 'error');
+                return;
+            }
+
+            const sidebar = document.getElementById('create-table-sidebar');
+            htmx.ajax('GET', '/dashboard/insert-form', {
+                target: sidebar,
+                swap: 'innerHTML'
+            }).then(() => {
+                openSidebar();
+            }).catch(error => {
+                console.error('HTMX Error:', error);
+                sidebar.innerHTML = '<p class="text-red-500">Failed to load insert form. Please try again.</p>';
+                openSidebar();
+            });
+        }
+        
+        // --- Global Functions for Sidebar Forms ---
+        // Make functions globally available for the dynamically loaded sidebar content to call.
+
+        // This function will be called by the 'Cancel' or 'X' button in the insert form.
+        window.closeInsertForm = closeSidebar;
+
+        // This function will be called by the insert form's script after a successful submission to refresh data.
+        window.refreshCurrentTable = function() {
+            if (window.currentTableName) {
+                console.log(`Refreshing data for table: ${window.currentTableName}`);
+                loadTableData(window.currentTableName);
+            } else {
+                console.warn("refreshCurrentTable called but no current table is set.");
+            }
+        };
+
+
+        // --- Data Loading and Rendering ---
+
+        function loadTables() {
+            const container = document.getElementById('table-list-container');
+            const url = 'http://localhost:1212/admin/tables';
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    container.innerHTML = ''; // Clear loading message
+                    if (data.length === 0) {
+                        container.innerHTML = '<span class="text-dark-600 text-sm p-2 block">No tables found.</span>';
+                    } else {
+                        data.forEach(table => {
+                            const tableItem = document.createElement('div');
+                            tableItem.className = 'table-item px-3 py-2 cursor-pointer hover:bg-dark-300 rounded-md transition-colors';
+                            tableItem.setAttribute('data-table-name', table.name);
+                            tableItem.innerHTML = `
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-table text-dark-600 text-sm"></i>
+                                    <span class="text-sm text-dark-700">${table.name}</span>
+                                </div>
+                            `;
+                            container.appendChild(tableItem);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching tables:', error);
+                    container.innerHTML = '<span class="text-red-500 text-sm p-2 block">Error loading tables.</span>';
+                });
+        }
+
+        function loadTableData(tableName) {
+            const container = document.getElementById("table-content");
+            container.innerHTML =
+                '<div class="flex items-center justify-center h-full text-dark-600"><i class="fas fa-spinner fa-spin mr-2"></i>Loading table data...</div>';
+
+            Promise.all([
+                fetch(`http://localhost:1212/admin/table?name=${tableName}`).then(res => res.json()),
+                fetch("http://localhost:1212/admin/query", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: `SELECT * FROM ${tableName};` }),
+                }).then(res => res.json())
+            ])
+            .then(([tableData, recordsData]) => {
+                window.currentTableName = tableName;
+                
+                // Modify column data types to show UUID for id fields
+                const modifiedColumns = tableData.columns.map(col => {
+                    if (col.name.toLowerCase() === 'id') {
+                        return { ...col, data_type: 'UUID' };
+                    }
+                    return col;
+                });
+                
+                window.columnsTypes = modifiedColumns;
+                renderTableView({...tableData, columns: modifiedColumns}, recordsData);
+            })
+            .catch((error) => {
+                console.error("Error loading table data:", error);
+                container.innerHTML =
+                    '<div class="flex items-center justify-center h-full text-red-500">Error loading table data.</div>';
+                window.currentTableName = null;
+                window.columnsTypes = null;
+            });
+        }
+
+        function renderTableView(tableData, recordsData) {
+            const container = document.getElementById("table-content");
+            const sortedColumns = [...tableData.columns].sort((a, b) => {
+                if (a.is_pk && !b.is_pk) return -1;
+                if (!a.is_pk && b.is_pk) return 1;
+                return 0;
+            });
+
+            container.innerHTML = `
+                <div class="h-full flex flex-col">
+                    <!-- Header -->
+                    <div class="flex items-center justify-between p-6 border-b border-dark-400">
+                        <h2 class="text-2xl font-bold text-white">${tableData.name}</h2>
+                        <button class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
+                                onclick="openInsertForm()">
+                            <i class="fas fa-plus"></i>
+                            <span>Insert Row</span>
+                        </button>
+                    </div>
+
+                    <!-- Tab Navigation -->
+                    <div class="border-b border-dark-400">
+                        <div class="flex">
+                            <button class="tab-btn active px-6 py-3 text-sm font-medium border-b-2 border-green-500 text-green-500" data-tab="data">
+                                <i class="fas fa-table mr-2"></i>Data
+                            </button>
+                            <button class="tab-btn px-6 py-3 text-sm font-medium border-b-2 border-transparent text-dark-600 hover:text-dark-700" data-tab="definition">
+                                <i class="fas fa-code mr-2"></i>Definition
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tab Content -->
+                    <div class="flex-1 overflow-auto">
+                        <!-- Data Tab -->
+                        <div id="data-tab" class="tab-content h-full">
+                            <table class="w-full text-sm">
+                                <thead class="sticky top-0 bg-dark-300 border-b border-dark-400">
+                                    <tr>
+                                        ${sortedColumns.map(col => `
+                                            <th class="px-4 py-3 text-left font-medium text-dark-700 border-r border-dark-400 last:border-r-0">
+                                                <div class="flex items-center gap-2">
+                                                    ${col.is_pk ? '<div class="w-5 h-5 bg-gradient-to-br from-yellow-400 to-orange-500 rounded text-xs flex items-center justify-center text-black font-bold">PK</div>' : ""}
+                                                    <span>${col.name}</span>
+                                                    <span class="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded text-xs font-medium">${col.data_type}</span>
+                                                </div>
+                                            </th>
+                                        `).join("")}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${recordsData.data && recordsData.data.length > 0 ? recordsData.data.map(row => `
+                                        <tr class="border-b border-dark-400 hover:bg-dark-300/50 transition-colors">
+                                            ${sortedColumns.map(col => `
+                                                <td class="px-4 py-3 border-r border-dark-400 last:border-r-0 text-dark-700">
+                                                    ${row[col.name] !== null && row[col.name] !== undefined
+                                                        ? `<span class="text-white">${formatCellValue(row[col.name], col.data_type)}</span>`
+                                                        : '<span class="text-dark-600 italic">NULL</span>'
+                                                    }
+                                                </td>
+                                            `).join("")}
+                                        </tr>
+                                    `).join("") : `
+                                        <tr>
+                                            <td colspan="${sortedColumns.length}" class="px-4 py-12 text-center text-dark-600">
+                                                <div>
+                                                    <i class="fas fa-table text-2xl mb-2 opacity-50"></i>
+                                                    <p>No data in this table</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Definition Tab -->
+                        <div id="definition-tab" class="tab-content h-full p-6 hidden">
+                            <h3 class="text-lg font-semibold text-white mb-4">SQL Definition</h3>
+                            <div class="sql-editor h-[calc(100%-60px)] overflow-auto">${highlightSQL(tableData.sql)}</div>
+                        </div>
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="p-4 border-t border-dark-400 bg-dark-200">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-dark-600">
+                                ${recordsData.data ? recordsData.data.length : 0} record${(recordsData.data ? recordsData.data.length : 0) !== 1 ? "s" : ""}
+                            </div>
+                            <button class="refresh-btn text-sm text-dark-600 hover:text-white flex items-center gap-2">
+                                <i class="fas fa-sync-alt"></i>
+                                <span>Refresh</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const tabButtons = container.querySelectorAll(".tab-btn");
+            const tabContents = container.querySelectorAll(".tab-content");
+            tabButtons.forEach(button => {
+                button.addEventListener("click", () => {
+                    const targetTab = button.getAttribute("data-tab");
+                    tabButtons.forEach(btn => {
+                        btn.classList.remove("active", "border-green-500", "text-green-500");
+                        btn.classList.add("border-transparent", "text-dark-600");
+                    });
+                    button.classList.add("active", "border-green-500", "text-green-500");
+                    tabContents.forEach(content => content.classList.add("hidden"));
+                    document.getElementById(`${targetTab}-tab`).classList.remove("hidden");
+                });
+            });
+
+            container.querySelector(".refresh-btn")?.addEventListener("click", () => loadTableData(tableData.name));
+        }
+
+        // --- Utility Functions ---
+
+        function formatCellValue(value, dataType) {
+            const type = dataType.toUpperCase();
+            
+            // Handle boolean values
+            if (type === 'BOOL' || type === 'BOOLEAN') {
+                if (value === 1 || value === '1' || value === true || value === 'true') {
+                    return 'true';
+                }
+                if (value === 0 || value === '0' || value === false || value === 'false') {
+                    return 'false';
+                }
+            }
+            
+            return String(value);
+        }
+
+        function highlightSQL(sql) {
+            return sql
+                .replace(/\b(CREATE|TABLE|SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|ALTER|DROP|INDEX|PRIMARY|KEY|FOREIGN|REFERENCES|NOT|NULL|AUTO_INCREMENT|UNIQUE|DEFAULT|INT|INTEGER|VARCHAR|TEXT|DATETIME|TIMESTAMP|BOOLEAN|DECIMAL|FLOAT|DOUBLE)\b/gi, '<span class="sql-keyword">$1</span>')
+                .replace(/'([^']*)'/g, "<span class=\"sql-string\">'$1'</span>")
+                .replace(/\b(\d+)\b/g, '<span class="sql-number">$1</span>')
+                .replace(/--.*$/gm, '<span class="sql-comment">$&</span>')
+                .replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*(?=\()/g, '<span class="sql-identifier">$1</span>')
+                .replace(/[(),;]/g, '<span class="sql-operator">$&</span>');
+        }
+        
+        function showCustomAlert(message, type = 'error') {
+            const alertBox = document.createElement('div');
+            const bgColor = type === 'success' ? '#22c55e' : '#ef4444'; // green-500 for success, red-500 for error
+            alertBox.style.cssText = `position: fixed; top: 20px; right: 20px; background-color: ${bgColor}; color: white; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1000; transition: opacity 0.3s;`;
+            alertBox.textContent = message;
+            document.body.appendChild(alertBox);
+            setTimeout(() => {
+                alertBox.style.opacity = '0';
+                setTimeout(() => alertBox.remove(), 300);
+            }, 3000);
+        }
+
+        // --- Event Listeners ---
+
+        function handleInsertSuccess() {
+            closeSidebar();
+            showCustomAlert('Row inserted successfully!', 'success');
+            if (window.currentTableName) {
+                loadTableData(window.currentTableName);
+            }
+        }
+
+        document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+            const trigger = evt.detail.xhr.getResponseHeader('HX-Trigger');
+            if (trigger === 'insertSuccess') {
+                handleInsertSuccess();
+            }
+        });
+
+        document.getElementById('table-list-container').addEventListener("click", function (e) {
+            const clickedItem = e.target.closest(".table-item");
+            if (clickedItem) {
+                document.querySelectorAll(".table-item").forEach(item => item.classList.remove("bg-blue-500/20"));
+                clickedItem.classList.add("bg-blue-500/20");
+                const tableName = clickedItem.getAttribute("data-table-name");
+                loadTableData(tableName);
+            }
+        });
+
+        // --- Initial Load ---
+        loadTables();
+      </script>
+    </div>
+  </body>
+</html>

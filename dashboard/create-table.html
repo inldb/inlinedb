@@ -1,0 +1,578 @@
+<div class="space-y-6 p-4 md:p-8 lg:p-12">
+    <!-- Form Header -->
+    <div class="flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-3xl md:text-4xl font-bold text-white">Create a new table</h1>
+            <p class="text-dark-600 mt-1">Define your table structure and columns</p>
+        </div>
+        <button class="text-dark-600 hover:text-white transition-colors" onclick="closeCreateTableForm()">
+            <i class="fas fa-times text-xl"></i>
+        </button>
+    </div>
+
+    <!-- Main Form -->
+    <form hx-post="http://localhost:1212/admin/table" hx-target="#form-result" hx-headers='{"Content-Type": "application/json"}' class="space-y-6">
+        <div class="space-y-6">
+            <!-- Table Details Section -->
+            <div class="bg-dark-100 rounded-lg border border-dark-400 p-6">
+                <h3 class="text-lg font-semibold text-white mb-4">Table Details</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-white mb-2">Name *</label>
+                        <input type="text" name="name" required
+                               class="w-full bg-dark-200 border border-dark-400 rounded-lg px-4 py-3 text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="e.g. users, products, orders">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-white mb-2">Description</label>
+                        <input type="text" name="description"
+                               class="w-full bg-dark-200 border border-dark-400 rounded-lg px-4 py-3 text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Optional description for this table">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columns Section -->
+            <div class="bg-dark-100 rounded-lg border border-dark-400 p-6">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <h3 class="text-lg font-semibold text-white">Columns</h3>
+                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                        <button type="button" class="text-dark-600 hover:text-white px-3 py-1 rounded-lg text-xs font-medium transition-colors">
+                            About data types
+                        </button>
+                        <button type="button" class="text-dark-600 hover:text-white px-3 py-1 rounded-lg text-xs font-medium transition-colors">
+                            Import data from CSV
+                        </button>
+                        <button type="button" id="add-column-btn"
+                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2">
+                            <i class="fas fa-plus"></i>
+                            <span>Add Column</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Column Rows Container -->
+                <div id="columns-container" class="space-y-4">
+                    <!-- Default 'id' Column Row -->
+                    <div class="column-row bg-dark-200 border border-dark-400 rounded-lg p-4 relative">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 items-center">
+                            <!-- Drag handle (hidden on small screens) -->
+                            <div class="hidden lg:block lg:col-span-1 cursor-grab text-dark-600 hover:text-white transition-colors">
+                                <i class="fas fa-grip-lines"></i>
+                            </div>
+                            <!-- Name input -->
+                            <div class="md:col-span-1 lg:col-span-3">
+                                <label class="block text-sm font-medium text-white mb-2">Name *</label>
+                                <input type="text" name="columns[0][name]" value="id" required disabled
+                                       class="w-full bg-dark-500 border border-dark-400 rounded-md px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <!-- Type select -->
+                            <div class="md:col-span-1 lg:col-span-2">
+                                <label class="block text-sm font-medium text-white mb-2">Type *</label>
+                                <select name="columns[0][data_type]" required disabled
+                                        class="w-full bg-dark-200 border border-dark-400 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="txt" selected>txt</option>
+                                    <option value="int">int</option>
+                                    <option value="num">number</option>
+                                    <option value="bool">boolean</option>
+                                    <option value="real">real</option>
+                                    <option value="data">data</option>
+                                    <option value="date">date</option>
+                                    <option value="datetime">datetime</option>
+                                    <option value="time">time</option>
+                                    <option value="timestamp">timestamp</option>
+                                </select>
+                            </div>
+                            <!-- Default Value input -->
+                            <div class="md:col-span-1 lg:col-span-3">
+                                <label class="block text-sm font-medium text-white mb-2">Default Value</label>
+                                <input type="text" name="columns[0][default_value]" value="random_uuid()" disabled
+                                       class="w-full bg-dark-500 border border-dark-400 rounded-md px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <!-- Primary Key checkbox -->
+                            <div class="md:col-span-1 lg:col-span-1 flex items-center">
+                                <label class="inline-flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" name="columns[0][is_pk]" class="form-checkbox h-4 w-4 text-blue-500 rounded border-dark-400 focus:ring-blue-500" disabled checked>
+                                    <span class="text-sm text-white">Primary</span>
+                                </label>
+                            </div>
+                            <!-- Extra options button -->
+                            <div class="md:col-span-1 lg:col-span-1 flex items-center md:pl-5">
+                                <button type="button" class="extra-options-btn text-dark-600 hover:text-white transition-colors" disabled>
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                            </div>
+                            <!-- Action buttons -->
+                            <div class="md:col-span-2 lg:col-span-1 flex items-center justify-start md:justify-end space-x-2">
+                                <button type="button" class="text-dark-600 hover:text-white transition-colors" disabled>
+                                    <i class="fas fa-clone"></i>
+                                </button>
+                                <button type="button" class="text-dark-600 hover:text-white transition-colors" disabled>
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Extra popover (hidden) -->
+                        <div class="extra-popover hidden absolute z-10 w-full lg:w-96 bg-dark-200 border border-dark-400 rounded-lg p-4 shadow-lg top-full right-0">
+                            <h4 class="text-sm font-medium text-white mb-2">Extra options</h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="columns[0][is_nullable]" class="form-checkbox h-4 w-4 text-blue-500 rounded border-dark-400 focus:ring-blue-500" checked disabled>
+                                        <span class="text-sm text-white">Is Nullable</span>
+                                    </label>
+                                    <p class="text-xs text-dark-600 mt-1">Specify if the column can assume a NULL value if no value is provided</p>
+                                </div>
+                                <div>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="columns[0][is_unique]" class="form-checkbox h-4 w-4 text-blue-500 rounded border-dark-400 focus:ring-blue-500" disabled>
+                                        <span class="text-sm text-white">Is Unique</span>
+                                    </label>
+                                    <p class="text-xs text-dark-600 mt-1">Enforce if values in the column should be unique across rows</p>
+                                </div>
+                                <div>
+                                    <label class="flex items-center space-x-2 cursor-pointer">
+                                        <input type="checkbox" name="columns[0][is_array]" class="form-checkbox h-4 w-4 text-blue-500 rounded border-dark-400 focus:ring-blue-500" disabled>
+                                        <span class="text-sm text-white">Define as Array</span>
+                                    </label>
+                                    <p class="text-xs text-dark-600 mt-1">Define your column as a variable-length multidimensional array</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center justify-end space-x-4">
+            <button type="button" class="text-dark-600 hover:text-white font-medium transition-colors" onclick="closeCreateTableForm()">
+                Cancel
+            </button>
+            <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2" onclick="submitForm(event)" id="submit-btn">
+                <span id="submit-text">Create Table</span>
+                <div id="submit-spinner" class="hidden">
+                    <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            </button>
+        </div>
+        
+        <div id="form-result" class="mt-4"></div>
+    </form>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+
+<script>
+    // Wrap everything in a function to avoid conflicts and ensure it runs after content is loaded
+    {
+        // Use a slight delay to ensure DOM is fully ready
+        setTimeout(function() {
+            let columnIndex = 1;
+            const columnsContainer = document.getElementById('columns-container');
+            const addColumnButton = document.getElementById('add-column-btn');
+
+            if (!columnsContainer || !addColumnButton) {
+                console.error('Columns container or add column button not found.');
+                return;
+            }
+
+            console.log('Add column functionality initialized'); // Debug log
+
+            /**
+             * Reindexes the column names in the form to maintain correct array indexing.
+             * This is crucial for the form data to be correctly serialized.
+             */
+            const reindexColumns = () => {
+                const rows = columnsContainer.querySelectorAll('.column-row:not(:first-child)');
+                rows.forEach((row, idx) => {
+                    const inputs = row.querySelectorAll('input, select');
+                    inputs.forEach(input => {
+                        if (input.name) {
+                            // Replace the number in the name attribute with the new index
+                            input.name = input.name.replace(/\[\d+\]/, `[${idx + 1}]`);
+                        }
+                    });
+                });
+                columnIndex = rows.length + 1;
+            };
+
+            /**
+             * Creates and appends a new column row to the form.
+             */
+            const createColumnRow = () => {
+                console.log('Adding new column row...'); // Debug log
+                const newRow = document.createElement('div');
+                newRow.className = 'column-row bg-dark-200 border border-dark-400 rounded-lg p-4 relative';
+                newRow.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 items-center">
+                        <div class="hidden lg:block lg:col-span-1 cursor-grab text-dark-600 hover:text-white transition-colors">
+                            <i class="fas fa-grip-lines"></i>
+                        </div>
+                        <div class="md:col-span-1 lg:col-span-3">
+                            <label class="block text-sm font-medium text-white mb-2">Name *</label>
+                            <input type="text" name="columns[${columnIndex}][name]" required
+                                   class="w-full bg-dark-200 border border-dark-400 rounded-md px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   placeholder="e.g. name, email">
+                        </div>
+                        <div class="md:col-span-1 lg:col-span-2">
+                            <label class="block text-sm font-medium text-white mb-2">Type *</label>
+                            <select name="columns[${columnIndex}][data_type]" required
+                                    class="w-full bg-dark-200 border border-dark-400 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="txt">txt</option>
+                                <option value="int">int</option>
+                                <option value="num">number</option>
+                                <option value="bool">boolean</option>
+                                <option value="real">real</option>
+                                <option value="data">data</option>
+                                <option value="date">date</option>
+                                <option value="datetime">datetime</option>
+                                <option value="time">time</option>
+                                <option value="timestamp">timestamp</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-1 lg:col-span-3">
+                            <label class="block text-sm font-medium text-white mb-2">Default Value</label>
+                            <input type="text" name="columns[${columnIndex}][default_value]"
+                                   class="w-full bg-dark-200 border border-dark-400 rounded-md px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div class="md:col-span-1 lg:col-span-1 flex items-center">
+                            <label class="inline-flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" name="columns[${columnIndex}][is_pk]" class="form-checkbox h-4 w-4 text-blue-500 rounded border-dark-400 focus:ring-blue-500">
+                                <span class="text-sm text-white">Primary</span>
+                            </label>
+                        </div>
+                        <div class="md:col-span-1 lg:col-span-1 flex items-center md:pl-5">
+                            <button type="button" class="extra-options-btn text-dark-600 hover:text-white transition-colors">
+                                <i class="fas fa-cog"></i>
+                            </button>
+                        </div>
+                        <div class="md:col-span-2 lg:col-span-1 flex items-center justify-start md:justify-end space-x-2">
+                            <button type="button" class="clone-column text-dark-600 hover:text-white transition-colors">
+                                <i class="fas fa-clone"></i>
+                            </button>
+                            <button type="button" class="remove-column text-dark-600 hover:text-white transition-colors">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="extra-popover hidden absolute z-10 w-full lg:w-96 bg-dark-200 border border-dark-400 rounded-lg p-4 shadow-lg top-full right-0">
+                        <h4 class="text-sm font-medium text-white mb-2">Extra options</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" name="columns[${columnIndex}][is_nullable]" class="form-checkbox h-4 w-4 text-blue-500 rounded border-dark-400 focus:ring-blue-500" checked>
+                                    <span class="text-sm text-white">Is Nullable</span>
+                                </label>
+                                <p class="text-xs text-dark-600 mt-1">Specify if the column can assume a NULL value if no value is provided</p>
+                            </div>
+                            <div>
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" name="columns[${columnIndex}][is_unique]" class="form-checkbox h-4 w-4 text-blue-500 rounded border-dark-400 focus:ring-blue-500">
+                                    <span class="text-sm text-white">Is Unique</span>
+                                </label>
+                                <p class="text-xs text-dark-600 mt-1">Enforce if values in the column should be unique across rows</p>
+                            </div>
+                            <div>
+                                <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" name="columns[${columnIndex}][is_array]" class="form-checkbox h-4 w-4 text-blue-500 rounded border-dark-400 focus:ring-blue-500">
+                                    <span class="text-sm text-white">Define as Array</span>
+                                </label>
+                                <p class="text-xs text-dark-600 mt-1">Define your column as a variable-length multidimensional array</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                columnsContainer.appendChild(newRow);
+                columnIndex++;
+                reindexColumns();
+            };
+
+            // Remove any existing event listeners and add new ones
+            addColumnButton.removeEventListener('click', createColumnRow);
+            addColumnButton.addEventListener('click', createColumnRow);
+
+            // Event delegation for dynamically added elements
+            columnsContainer.addEventListener('click', (event) => {
+                const removeButton = event.target.closest('.remove-column');
+                if (removeButton) {
+                    console.log('Removing column...'); // Debug log
+                    removeButton.closest('.column-row').remove();
+                    reindexColumns();
+                    return;
+                }
+                
+                const cloneButton = event.target.closest('.clone-column');
+                if (cloneButton) {
+                    console.log('Cloning column...'); // Debug log
+                    const row = cloneButton.closest('.column-row');
+                    const clone = row.cloneNode(true);
+                    columnsContainer.insertBefore(clone, row.nextSibling);
+                    reindexColumns();
+                    return;
+                }
+                
+                const extraBtn = event.target.closest('.extra-options-btn');
+                if (extraBtn) {
+                    console.log('Toggling extra options...'); // Debug log
+                    const popover = extraBtn.closest('.column-row').querySelector('.extra-popover');
+                    popover.classList.toggle('hidden');
+                }
+            });
+
+            console.log('Create table form initialized successfully'); // Debug log
+            
+            // Toast notification function
+            window.showToast = function(message, type = 'success') {
+                const toastContainer = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                
+                const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+                const icon = type === 'success' ? 
+                    '<i class="fas fa-check-circle"></i>' : 
+                    '<i class="fas fa-exclamation-circle"></i>';
+                
+                toast.className = `${bgColor} text-white px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 transform translate-x-full transition-transform duration-300 max-w-sm sm:max-w-md`;
+                toast.innerHTML = `
+                    ${icon}
+                    <span class="flex-1">${message}</span>
+                    <button onclick="this.parentElement.remove()" class="text-white/70 hover:text-white">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                
+                toastContainer.appendChild(toast);
+                
+                // Slide in
+                setTimeout(() => {
+                    toast.classList.remove('translate-x-full');
+                }, 10);
+                
+                // Auto remove after 5 seconds
+                setTimeout(() => {
+                    toast.classList.add('translate-x-full');
+                    setTimeout(() => {
+                        if (toast.parentElement) {
+                            toast.remove();
+                        }
+                    }, 300);
+                }, 5000);
+            };
+            
+            // Function to refresh table list in table editor
+            window.refreshTableList = function() {
+                if (typeof loadTables === 'function') {
+                    loadTables();
+                } else if (window.parent && window.parent.loadTables) {
+                    window.parent.loadTables();
+                }
+            };
+            
+            /**
+             * Validates a column's default value based on its data type.
+             * @param {string} dataType The data type (e.g., 'int', 'datetime').
+             * @param {string} value The default value string.
+             * @returns {{isValid: boolean, message: string}}
+             */
+            const validateDefaultValue = (dataType, value) => {
+                if (value === "") {
+                    return { isValid: true, message: "" };
+                }
+
+                switch (dataType.toLowerCase()) {
+                    case "int":
+                        if (!/^-?\d+$/.test(value)) {
+                            return { isValid: false, message: "Default value must be an integer." };
+                        }
+                        break;
+                    case "num":
+                    case "real":
+                        if (isNaN(parseFloat(value)) || !isFinite(value)) {
+                            return { isValid: false, message: "Default value must be a number." };
+                        }
+                        break;
+                    case "date":
+                    case "datetime":
+                    case "timestamp":
+                    case "time":
+                        // A very basic check to see if it's a parseable date string
+                        if (isNaN(new Date(value).getTime())) {
+                            return { isValid: false, message: "Default value must be a valid date/time string." };
+                        }
+                        break;
+                    // 'txt' and 'data' types don't require specific format validation
+                    default:
+                        break;
+                }
+                return { isValid: true, message: "" };
+            };
+
+            // Add form submission handler
+            window.submitForm = function(event) {
+                event.preventDefault();
+                
+                const form = event.target.closest('form');
+                const formData = new FormData(form);
+                const submitBtn = document.getElementById('submit-btn');
+                const submitText = document.getElementById('submit-text');
+                const submitSpinner = document.getElementById('submit-spinner');
+                
+                // Show loading state
+                submitBtn.disabled = true;
+                submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+                submitText.textContent = 'Creating...';
+                submitSpinner.classList.remove('hidden');
+                
+                // Build the JSON structure according to your API
+                const tableData = {
+                    name: formData.get('name'),
+                    sql: "", // Empty as per your example
+                    records_count: 0,
+                    columns: []
+                };
+                
+                // Always add the default "id" column first (primary key, not nullable)
+                tableData.columns.push({
+                    name: "id",
+                    data_type: "txt",
+                    is_pk: true,
+                    nullable: false,
+                    default_value: "'random_uuid()'" 
+                });
+                
+                // Process additional columns
+                const columnEntries = {};
+                
+                // Group form data by column index
+                for (let [key, value] of formData.entries()) {
+                    if (key.startsWith('columns[')) {
+                        const match = key.match(/columns\[(\d+)\]\[(\w+)\]/);
+                        if (match) {
+                            const index = match[1];
+                            const field = match[2];
+                            
+                            // Skip index 0 as it's the default id column
+                            if (index === '0') continue;
+                            
+                            if (!columnEntries[index]) {
+                                columnEntries[index] = { default_value: "" };
+                            }
+                            
+                            // Handle checkbox values
+                            if (field === 'is_pk' || field === 'is_unique') {
+                                columnEntries[index][field] = true; // Checkbox was checked
+                            } else if (field === 'is_nullable') {
+                                columnEntries[index][field] = true; // Checked
+                            } else {
+                                columnEntries[index][field] = value;
+                            }
+                        }
+                    }
+                }
+                
+                // Convert to array and set defaults for additional columns
+                let hasError = false;
+                Object.keys(columnEntries).forEach(index => {
+                    if (hasError) return;
+
+                    const col = columnEntries[index];
+                    const name = col.name || '';
+                    const dataType = col.data_type || 'txt';
+                    const defaultValue = col.default_value || '';
+
+                    if (name.trim()) {
+                        const validation = validateDefaultValue(dataType, defaultValue);
+                        if (!validation.isValid) {
+                            showToast(`Invalid default value for column "${name}": ${validation.message}`, "error");
+                            hasError = true;
+                            return;
+                        }
+
+                        tableData.columns.push({
+                            name: name.trim(),
+                            data_type: dataType,
+                            default_value: defaultValue,
+                            is_pk: col.is_pk || false,
+                            is_unique: col.is_unique || false,
+                            nullable: col.is_nullable !== undefined ? col.is_nullable : true
+                        });
+                    }
+                });
+
+                if (hasError) {
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    submitText.textContent = 'Create Table';
+                    submitSpinner.classList.add('hidden');
+                    return;
+                }
+                
+                console.log('Submitting table data:', tableData); // Debug log
+                
+                // Send the request
+                fetch('http://localhost:1212/admin/table', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(tableData)
+                })
+                .then(response => {
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    submitText.textContent = 'Create Table';
+                    submitSpinner.classList.add('hidden');
+                    
+                    if (!response.ok) {
+                        return response.text().then(text => {
+                            throw new Error(`Server error (${response.status}): ${text || 'Unknown error'}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Success:', data);
+                    
+                    // Show success toast
+                    showToast(`Table "${tableData.name}" created successfully!`, 'success');
+                    
+                    // Clear the form result area
+                    document.getElementById('form-result').innerHTML = '';
+                    
+                    // Close the sidebar and refresh table list
+                    setTimeout(() => {
+                        if (typeof closeCreateTableForm === 'function') {
+                            closeCreateTableForm();
+                        }
+                        
+                        // Refresh the table list in table editor
+                        refreshTableList();
+                        
+                    }, 1000); // Give time for user to see the toast
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    submitText.textContent = 'Create Table';
+                    submitSpinner.classList.add('hidden');
+                    
+                    // Show error toast
+                    showToast(error.message || 'Failed to create table', 'error');
+                    
+                    // Also show error in form result area
+                    document.getElementById('form-result').innerHTML = 
+                        '<div class="bg-red-500/20 border border-red-500 rounded-lg p-4 text-red-400">Error creating table: ' + error.message + '</div>';
+                });
+            };
+        }, 100); // Small delay to ensure DOM is ready
+    }
+</script>

@@ -1,0 +1,289 @@
+    <!-- Main content area, now full-width -->
+    <main class="p-8">
+      <!-- Page header -->
+      <div class="mb-8">
+        <h1 class="text-4xl font-extrabold mb-2 text-white">Overview</h1>
+        <p class="text-dark-600 text-lg">
+          Monitor your project's performance and usage statistics
+        </p>
+      </div>
+
+      <!-- Main statistics cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+        <!-- Tables card -->
+        <div class="bg-dark-200 rounded-xl border border-dark-400 p-6 card">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-white">Tables</h3>
+            <i class="fas fa-table text-blue-400 text-2xl"></i>
+          </div>
+          <div class="text-4xl font-bold text-white mb-2">
+            <span id="table-count">Loading...</span>
+          </div>
+          <div class="text-sm text-dark-600">Active tables</div>
+        </div>
+
+        <!-- Functions card -->
+        <div class="bg-dark-200 rounded-xl border border-dark-400 p-6 card">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-white">Functions</h3>
+            <i class="fas fa-bolt text-blue-400 text-2xl"></i>
+          </div>
+          <div class="text-4xl font-bold text-white mb-2">0</div>
+          <div class="text-sm text-dark-600">Edge functions</div>
+        </div>
+
+        <!-- Status card -->
+        <div class="bg-dark-200 rounded-xl border border-dark-400 p-6 card">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-white">Status</h3>
+            <div class="flex items-center">
+              <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+              <span class="text-sm text-green-500">Active</span>
+            </div>
+          </div>
+          <div class="text-xl font-bold text-green-500 mb-2">Operational</div>
+          <div class="text-sm text-dark-600">All systems online</div>
+        </div>
+      </div>
+
+      <!-- Custom-styled time selection dropdown -->
+      <div class="mb-6 flex items-center justify-end">
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-dark-600">Statistics for last</span>
+          <div class="relative inline-block text-left">
+            <button
+              id="dropdown-button"
+              type="button"
+              class="inline-flex items-center justify-between rounded-lg border border-dark-400 shadow-sm px-4 py-2 bg-dark-300 text-sm font-medium text-white custom-dropdown-button"
+              aria-expanded="true"
+              aria-haspopup="true"
+            >
+              <span id="selected-option-text" class="mr-2">60 minutes</span>
+              <svg
+                class="h-4 w-4 text-dark-600"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </button>
+            <div
+              id="dropdown-menu"
+              class="origin-top-right absolute right-0 mt-2 w-40 rounded-lg shadow-xl bg-dark-300 ring-1 ring-white ring-opacity-5 hidden z-10"
+              role="menu"
+              aria-orientation="vertical"
+              aria-labelledby="dropdown-button"
+            >
+              <div class="py-1" role="none">
+                <a
+                  href="#"
+                  class="dropdown-option text-dark-600 block px-4 py-2 text-sm custom-dropdown-option selected"
+                  role="menuitem"
+                  data-value="60"
+                  >60 minutes</a
+                >
+                <a
+                  href="#"
+                  class="dropdown-option text-dark-600 block px-4 py-2 text-sm custom-dropdown-option"
+                  role="menuitem"
+                  data-value="24"
+                  >24 hours</a
+                >
+                <a
+                  href="#"
+                  class="dropdown-option text-dark-600 block px-4 py-2 text-sm custom-dropdown-option"
+                  role="menuitem"
+                  data-value="7"
+                  >7 days</a
+                >
+                <a
+                  href="#"
+                  class="dropdown-option text-dark-600 block px-4 py-2 text-sm custom-dropdown-option"
+                  role="menuitem"
+                  data-value="30"
+                  >30 days</a
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Placeholder for chart sections -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div class="bg-dark-200 rounded-xl border border-dark-400 p-6 card">
+          <h3 class="text-lg font-semibold text-white mb-2">
+            Database Requests
+          </h3>
+          <p class="text-dark-600 text-sm mb-4">Requests over time</p>
+          <div
+            class="h-40 bg-dark-300 rounded-md border border-dark-400 flex items-center justify-center chart-placeholder"
+          >
+            <!-- Visually more appealing chart placeholder -->
+            <svg
+              class="w-full h-full p-2 text-blue-500 opacity-60"
+              viewBox="0 0 100 50"
+              preserveAspectRatio="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient id="gradient1" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" style="stop-color: #2563eb; stop-opacity: 0.8" />
+                  <stop offset="100%" style="stop-color: #2563eb; stop-opacity: 0" />
+                </linearGradient>
+              </defs>
+              <polyline
+                points="0,40 10,25 20,35 30,20 40,30 50,15 60,25 70,10 80,20 90,5 100,15"
+                fill="none"
+                stroke="url(#gradient1)"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <path
+                d="M0,40 L10,25 L20,35 L30,20 L40,30 L50,15 L60,25 L70,10 L80,20 90,5 100,15 L100,50 L0,50 Z"
+                fill="url(#gradient1)"
+              />
+            </svg>
+          </div>
+        </div>
+        <div class="bg-dark-200 rounded-xl border border-dark-400 p-6 card">
+          <h3 class="text-lg font-semibold text-white mb-2">API Requests</h3>
+          <p class="text-dark-600 text-sm mb-4">Requests from your API</p>
+          <div
+            class="h-40 bg-dark-300 rounded-md border border-dark-400 flex items-center justify-center chart-placeholder"
+          >
+            <svg
+              class="w-full h-full p-2 text-blue-500 opacity-60"
+              viewBox="0 0 100 50"
+              preserveAspectRatio="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient id="gradient2" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" style="stop-color: #22c55e; stop-opacity: 0.8" />
+                  <stop offset="100%" style="stop-color: #22c55e; stop-opacity: 0" />
+                </linearGradient>
+              </defs>
+              <polyline
+                points="0,30 10,40 20,25 30,35 40,20 50,30 60,15 70,25 80,10 90,20 100,5"
+                fill="none"
+                stroke="url(#gradient2)"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <path
+                d="M0,30 L10,40 L20,25 L30,35 L40,20 L50,30 L60,15 L70,25 L80,10 L90,20 L100,5 L100,50 L0,50 Z"
+                fill="url(#gradient2)"
+              />
+            </svg>
+          </div>
+        </div>
+        <div class="bg-dark-200 rounded-xl border border-dark-400 p-6 card">
+          <h3 class="text-lg font-semibold text-white mb-2">Function Calls</h3>
+          <p class="text-dark-600 text-sm mb-4">
+            Invocations of edge functions
+          </p>
+          <div
+            class="h-40 bg-dark-300 rounded-md border border-dark-400 flex items-center justify-center chart-placeholder"
+          >
+            <svg
+              class="w-full h-full p-2 text-blue-500 opacity-60"
+              viewBox="0 0 100 50"
+              preserveAspectRatio="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <defs>
+                <linearGradient id="gradient3" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" style="stop-color: #f59e0b; stop-opacity: 0.8" />
+                  <stop offset="100%" style="stop-color: #f59e0b; stop-opacity: 0" />
+                </linearGradient>
+              </defs>
+              <polyline
+                points="0,15 10,25 20,5 30,20 40,10 50,30 60,15 70,35 80,20 90,40 100,25"
+                fill="none"
+                stroke="url(#gradient3)"
+                stroke-width="2"
+                stroke-linecap="round"
+              />
+              <path
+                d="M0,15 L10,25 L20,5 L30,20 L40,10 L50,30 L60,15 L70,35 L80,20 L90,40 L100,25 L100,50 L0,50 Z"
+                fill="url(#gradient3)"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        // The core logic for initializing the dashboard
+        function initializeDashboard() {
+          // Fetch data for the table count
+          fetch("/admin/overview")
+            .then((response) => response.json())
+            .then((data) => {
+              const tableCountElement = document.getElementById("table-count");
+              if (tableCountElement) {
+                tableCountElement.textContent = data.count;
+              }
+            })
+            .catch((error) => console.error("Error:", error));
+
+          // --- Custom Dropdown Logic ---
+          const dropdownButton = document.getElementById("dropdown-button");
+          const dropdownMenu = document.getElementById("dropdown-menu");
+          const selectedOptionText = document.getElementById(
+            "selected-option-text"
+          );
+          const dropdownOptions = document.querySelectorAll(".dropdown-option");
+
+          function toggleDropdown() {
+            dropdownMenu.classList.toggle("hidden");
+          }
+
+          if (dropdownButton) {
+            dropdownButton.addEventListener("click", (event) => {
+              event.stopPropagation();
+              toggleDropdown();
+            });
+          }
+
+          if (dropdownOptions) {
+            dropdownOptions.forEach((option) => {
+              option.addEventListener("click", (event) => {
+                event.preventDefault();
+                const value = option.dataset.value;
+                const text = option.textContent;
+  
+                dropdownOptions.forEach((opt) => opt.classList.remove("selected"));
+                option.classList.add("selected");
+  
+                selectedOptionText.textContent = text;
+                console.log("Selected value:", value);
+                
+                toggleDropdown();
+              });
+            });
+          }
+
+          // This event listener needs to be attached to the document
+          document.addEventListener("click", (event) => {
+            if (
+              dropdownButton && dropdownMenu &&
+              !dropdownButton.contains(event.target) &&
+              !dropdownMenu.contains(event.target)
+            ) {
+              dropdownMenu.classList.add("hidden");
+            }
+          });
+        }
+
+        // Call the initialization function directly when the script runs.
+        initializeDashboard();
+      </script>
+    </main>

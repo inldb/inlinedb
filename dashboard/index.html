@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <title>InlineDB</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            100: '#060606', // Main background
+                            200: '#0e0e0e', // Card/Panel background
+                            300: '#171717', // Sidebar background
+                            400: '#262626', // Border color
+                            500: '#343434', // Subtle element color
+                            600: '#757575', // Text color for non-essentials
+                            700: '#A1A1A1', // Default text color
+                        },
+                        // Custom green accent colors based on provided screenshots
+                        green: {
+                            500: '#4575b8', // Main accent green
+                            600: '#073f8c'  // Darker hover green
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Custom Scrollbar Styles - Works in Webkit browsers (Chrome, Safari, Edge) */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #343434 #0e0e0e;
+        }
+
+        /* Webkit scrollbar styling */
+        *::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        *::-webkit-scrollbar-track {
+            background: #0e0e0e;
+            border-radius: 4px;
+        }
+
+        *::-webkit-scrollbar-thumb {
+            background: #343434;
+            border-radius: 4px;
+            border: 1px solid #171717;
+        }
+
+        *::-webkit-scrollbar-thumb:hover {
+            background: #4575b8;
+        }
+
+        *::-webkit-scrollbar-thumb:active {
+            background: #073f8c;
+        }
+
+        /* Corner where horizontal and vertical scrollbars meet */
+        *::-webkit-scrollbar-corner {
+            background: #0e0e0e;
+        }
+
+        /* Alternative scrollbar design - uncomment if you prefer a different style */
+        /*
+        *::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        *::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        *::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #4575b8, #073f8c);
+            border-radius: 10px;
+            border: 2px solid #0e0e0e;
+        }
+
+        *::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #5a86d6, #0952b8);
+        }
+        */
+
+        body {
+            overflow-x: hidden;
+        }   
+
+        main {
+            overflow-x: hidden;
+        }
+        
+        /* Add a subtle highlight for active and hovered nav items */
+        .nav-item {
+            position: relative;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .nav-item:hover {
+            background-color: rgba(77, 122, 211, 0.05);
+            color: #fff;
+        }
+
+        .nav-item.active {
+            background-color: rgba(77, 155, 211, 0.1);
+        }
+        
+        /* Supabase style focus outline */
+        input:focus, select:focus {
+            outline: 2px solid #4575b8 !important;
+            outline-offset: 2px;
+            border-color: transparent !important;
+        }
+
+        /* Right sidebar for create table form */
+        #create-table-sidebar {
+            transition: transform 0.3s ease-in-out;
+            transform: translateX(100%);
+            display: none; /* Hide by default */
+        }
+
+        #create-table-sidebar.open {
+            transform: translateX(0);
+            display: block; /* Show when open */
+        }
+        /* Blur overlay for the main content */
+        #main-overlay {
+            transition: opacity 0.3s ease-in-out, backdrop-filter 0.3s ease-in-out;
+            opacity: 0;
+            pointer-events: none;
+            backdrop-filter: blur(0px);
+        }
+
+        #main-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+            backdrop-filter: blur(4px);
+        }
+        
+        /* Sidebar specific styles */
+        .main-sidebar {
+            transition: width 0.3s ease-in-out;
+            width: 256px; /* w-64 */
+        }
+
+        .main-sidebar.minimized {
+            width: 80px; /* Adjust to fit icons plus some padding */
+        }
+        
+        .main-sidebar .nav-link-text {
+            transition: opacity 0.3s ease-in-out;
+            opacity: 1;
+        }
+
+        .main-sidebar.minimized .nav-link-text {
+            opacity: 0;
+            display: none;
+        }
+
+        .sql-keyword { color: #569cd6; }
+        .sql-string { color: #ce9178; }
+        .sql-number { color: #b5cea8; }
+        .sql-comment { color: #6a9955; }
+        .sql-identifier { color: #9cdcfe; }
+        .sql-operator { color: #d4d4d4; }
+
+        /* Table styles - Supabase-like */
+        .table-container {
+            border: 1px solid #262626;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #0e0e0e;
+        }
+
+        .table-header {
+            background: #171717;
+            border-bottom: 1px solid #262626;
+            display: flex;
+            min-width: fit-content;
+        }
+
+        .table-header-cell {
+            padding: 12px 16px;
+            border-right: 1px solid #262626;
+            font-weight: 500;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #A1A1A1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 150px;
+            flex-shrink: 0;
+        }
+
+        .table-header-cell:last-child {
+            border-right: none;
+        }
+
+        .table-row {
+            display: flex;
+            border-bottom: 1px solid #171717;
+            min-width: fit-content;
+            transition: background-color 0.1s ease;
+        }
+
+        .table-row:hover {
+            background: #171717;
+        }
+
+        .table-row:last-child {
+            border-bottom: none;
+        }
+
+        .table-cell {
+            padding: 12px 16px;
+            border-right: 1px solid #171717;
+            font-size: 13px;
+            color: #d4d4d4;
+            display: flex;
+            align-items: center;
+            min-height: 45px;
+            min-width: 150px;
+            flex-shrink: 0;
+            word-break: break-word;
+        }
+
+        .table-cell:last-child {
+            border-right: none;
+        }
+
+        .table-cell.null-value {
+            color: #757575;
+            font-style: italic;
+        }
+
+        .pk-indicator {
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .data-type-badge {
+            background: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        /* Scrollable table container */
+        .table-scroll-container {
+            overflow: auto;
+            max-height: calc(100vh - 350px);
+        }
+    </style>
+</head>
+<body class="bg-dark-100 text-dark-700 min-h-screen font-sans">
+    <nav class="bg-dark-200 border-b border-dark-400 px-6 py-3">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <img src="/dashboard/logo.png" alt="InlineDB Logo" class="w-7 h-7">
+                    <span class="font-bold text-xl text-white">InlineDB</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex h-[calc(100vh-60px)] relative">
+        <aside id="main-sidebar" class="main-sidebar bg-dark-300 border-r border-dark-400 flex flex-col p-4 space-y-4">
+            <div class="flex-1 overflow-y-auto">
+                <nav class="space-y-1">
+                    <a href="#" class="nav-item active flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium text-white transition-colors duration-200"
+                       hx-get="/dashboard/overview" hx-target="#main-content">
+                        <i class="fas fa-chart-line w-5 text-dark-600"></i>
+                        <span class="nav-link-text">Overview</span>
+                    </a>
+                    <a href="#" class="nav-item flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium text-dark-700 hover:text-white transition-colors duration-200"
+                       hx-get="/dashboard/table-editor" hx-target="#main-content">
+                        <i class="fas fa-table w-5 text-dark-600"></i>
+                        <span class="nav-link-text">Table Editor</span>
+                    </a>
+                    <a href="#" class="nav-item flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium text-dark-700 hover:text-white transition-colors duration-200"
+                       hx-get="/dashboard/edge-functions" hx-target="#main-content">
+                        <i class="fas fa-bolt w-5 text-dark-600"></i>
+                        <span class="nav-link-text">Edge Functions</span>
+                    </a>
+                    <a href="#" class="nav-item flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium text-dark-700 hover:text-white transition-colors duration-200"
+                       hx-get="/dashboard/logs" hx-target="#main-content">
+                        <i class="fas fa-list-alt w-5 text-dark-600"></i>
+                        <span class="nav-link-text">Logs</span>
+                    </a>
+                    <a href="#" class="nav-item flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium text-dark-700 hover:text-white transition-colors duration-200"
+                       hx-get="/dashboard/settings" hx-target="#main-content">
+                        <i class="fas fa-cog w-5 text-dark-600"></i>
+                        <span class="nav-link-text">Settings</span>
+                    </a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="flex-1 overflow-y-auto" id="main-content">
+            <div hx-get="/dashboard/overview" hx-trigger="load" hx-target="this"></div>
+        </main>
+        
+        <div id="main-overlay" class="absolute inset-0 bg-dark-100/50 z-10"></div>
+
+<div id="create-table-sidebar" class="absolute inset-y-0 right-0 w-[800px] bg-dark-200 border-l border-dark-400 p-8 shadow-2xl overflow-y-auto z-20"></div>
+    </div>
+    </div>
+
+<script>
+    const sidebar = document.getElementById('main-sidebar');
+
+    // Handles the active state and sidebar minimization on page load
+    document.addEventListener('htmx:afterOnLoad', function(e) {
+        const activePath = new URL(e.detail.xhr.responseURL).pathname;
+        
+        // Highlight the active navigation item
+        document.querySelectorAll('.nav-item').forEach(item => {
+            const hxGet = item.getAttribute('hx-get');
+            if (hxGet === activePath) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+
+        // Close the create table sidebar if navigating away
+        const createTableSidebar = document.getElementById('create-table-sidebar');
+        const overlay = document.getElementById('main-overlay');
+        if (activePath !== '/dashboard/create-table') {
+            createTableSidebar.classList.remove('open');
+            overlay.classList.remove('open');
+        }
+
+        // Automatically minimize sidebar if on the Table Editor page
+        if (activePath.startsWith('/dashboard/table-editor')) {
+            sidebar.classList.add('minimized');
+        } else {
+            sidebar.classList.remove('minimized');
+        }
+
+        // Update the icon of the toggle button based on the sidebar's state
+        const toggleButton = document.querySelector('.sidebar-toggle-btn i');
+        if (toggleButton) {
+            if (sidebar.classList.contains('minimized')) {
+                toggleButton.classList.remove('fa-chevron-left');
+                toggleButton.classList.add('fa-chevron-right');
+            } else {
+                toggleButton.classList.remove('fa-chevron-right');
+                toggleButton.classList.add('fa-chevron-left');
+            }
+        }
+    });
+
+    // Toggles the sidebar on button click
+    function toggleSidebar() {
+        const toggleButton = document.querySelector('.sidebar-toggle-btn i');
+        sidebar.classList.toggle('minimized');
+
+        if (sidebar.classList.contains('minimized')) {
+            toggleButton.classList.remove('fa-chevron-left');
+            toggleButton.classList.add('fa-chevron-right');
+        } else {
+            toggleButton.classList.remove('fa-chevron-right');
+            toggleButton.classList.add('fa-chevron-left');
+        }
+    }
+    
+    // Functions for create table sidebar
+    function openCreateTableForm() {
+        const createTableSidebar = document.getElementById('create-table-sidebar');
+        const overlay = document.getElementById('main-overlay');
+        htmx.ajax('GET', '/dashboard/create-table', { 
+            target: createTableSidebar, 
+            swap: 'innerHTML' 
+        }).then(response => {
+            if (!createTableSidebar.innerHTML.trim()) {
+                createTableSidebar.innerHTML = '<p class="text-dark-700">No content available. Please try again later.</p>';
+            }
+            createTableSidebar.classList.add('open');
+            overlay.classList.add('open');
+        }).catch(error => {
+            console.error('HTMX Error:', error);
+            createTableSidebar.innerHTML = '<p class="text-red-500">Failed to load form. Please try again.</p>';
+            createTableSidebar.classList.add('open');
+            overlay.classList.add('open');
+        });
+    }
+
+    function closeCreateTableForm() {
+        const createTableSidebar = document.getElementById('create-table-sidebar');
+        const overlay = document.getElementById('main-overlay');
+        createTableSidebar.classList.remove('open');
+        overlay.classList.remove('open');
+    }
+</script>
+</body>
+</html>

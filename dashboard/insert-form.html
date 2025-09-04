@@ -1,0 +1,385 @@
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold mb-1 text-white">Insert new row</h1>
+            <p class="text-dark-600">Fill in the values for each column</p>
+        </div>
+        <button class="text-dark-600 hover:text-white transition-colors" onclick="closeInsertForm()">
+            <i class="fas fa-times text-xl"></i>
+        </button>
+    </div>
+
+    <form id="insert-form" class="space-y-6">
+        <div class="bg-dark-100 rounded-lg border border-dark-400 p-6">
+            <h3 class="text-lg font-semibold text-white mb-4">Row Details</h3>
+            
+            <div id="insert-columns-container" class="space-y-4"></div>
+        </div>
+
+        <div class="flex items-center justify-end gap-7">
+            <button type="button" class="text-dark-600 hover:text-white font-medium transition-colors" onclick="closeInsertForm()">
+                Cancel
+            </button>
+            <button type="submit" id="submit-btn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-1 rounded-lg font-medium transition-colors flex items-center space-x-2">
+                <span id="submit-text">Insert Row</span>
+                <div id="submit-spinner" class="hidden">
+                    <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            </button>
+        </div>
+
+        <div id="form-result" class="mt-4"></div>
+    </form>
+</div>
+
+<script>
+    // Initialize the insert form when it loads
+    (function() {
+        console.log("Insert form script loaded");
+        
+        // Wait for columnsTypes to be available from the parent window
+        function initializeForm() {
+            // Try to get columnsTypes from the parent window or global scope
+            let columnsTypes = window.parent.columnsTypes || window.columnsTypes;
+            let currentTableName = window.parent.currentTableName || window.currentTableName;
+            
+            console.log("columnsTypes:", columnsTypes);
+            console.log("currentTableName:", currentTableName);
+            
+            if (!columnsTypes || !Array.isArray(columnsTypes)) {
+                console.log("columnsTypes not available, retrying in 200ms");
+                setTimeout(initializeForm, 200);
+                return;
+            }
+            
+            if (!currentTableName) {
+                console.log("currentTableName not available, trying to get from DOM");
+                // Try to get from the table header in the main content
+                const tableHeader = document.querySelector('#main-content h2');
+                if (tableHeader) {
+                    currentTableName = tableHeader.textContent.trim();
+                    console.log("Got table name from DOM:", currentTableName);
+                } else {
+                    console.log("Could not find table name");
+                }
+            }
+            
+            buildInsertForm(columnsTypes, currentTableName);
+        }
+        
+        function buildInsertForm(columnsTypes, tableName) {
+            const form = document.getElementById('insert-form');
+            const container = document.getElementById("insert-columns-container");
+            
+            if (!form || !container) {
+                console.error("Form or container not found");
+                return;
+            }
+            
+            container.innerHTML = ""; 
+
+            function getHtmlInputType(dataType) {
+                const type = dataType.toUpperCase();
+
+                if (type === 'INTEGER' || type === 'REAL' || type === 'NUMERIC') return 'number';
+                if (type === 'BLOB') return 'file';
+                if (type === 'DATE') return 'date';
+                if (type === 'DATETIME' || type === 'TIMESTAMP') return 'datetime-local';
+                if (type === 'TIME') return 'time';
+                if (type === 'BOOL' || type === 'BOOLEAN') return 'select';
+                
+                return 'text';
+            }
+            
+            // Filter out id fields and modify id column data type to UUID for display
+            const modifiedColumns = columnsTypes.map(col => {
+                if (col.name.toLowerCase() === 'id') {
+                    return { ...col, data_type: 'UUID' };
+                }
+                return col;
+            });
+            
+            const filteredColumns = modifiedColumns.filter(col => 
+                col.name.toLowerCase() !== 'id'
+            );
+            
+            filteredColumns.forEach((col, index) => {
+                const row = document.createElement("div");
+                row.className = "column-row bg-dark-200 border border-dark-400 rounded-lg p-4";
+
+                row.innerHTML = `
+                    <div class="flex flex-col gap-4">
+                        <div class="flex justify-between items-center">
+                            <label class="block text-sm font-medium text-white">${col.name} ${!col.nullable ? '*' : ''}</label>
+                            <p class="text-sm text-dark-600">Type: <span class="text-white">${col.data_type}</span></p>
+                        </div>
+                        ${getHtmlInputType(col.data_type) === 'select' ? `
+                            <select name="${col.name}" ${!col.nullable ? 'required' : ''} 
+                                    class="w-full bg-dark-500 border border-dark-400 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Select ${col.name}</option>
+                                <option value="true">True</option>
+                                <option value="false">False</option>
+                            </select>
+                        ` : `
+                            <input type="${getHtmlInputType(col.data_type)}"
+                                name="${col.name}"
+                                ${!col.nullable ? 'required' : ''}
+                                ${col.data_type.toUpperCase() === 'INTEGER' && col.is_pk ? 'min="0"' : ''}
+                                placeholder="Enter ${col.name}"
+                                class="w-full bg-dark-500 border border-dark-400 rounded-md px-3 py-2 text-white placeholder-dark-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        `}
+                    </div>
+                `;
+
+                container.appendChild(row);
+            });
+
+            // Add form submission handler
+            form.addEventListener("submit", handleFormSubmit);
+            
+            function handleFormSubmit(e) {
+                e.preventDefault();
+                console.log("Form submitted!");
+
+                const submitBtn = document.getElementById('submit-btn');
+                const submitText = document.getElementById('submit-text');
+                const submitSpinner = document.getElementById('submit-spinner');
+                const error = document.getElementById('form-result');
+
+                if (!submitBtn || !submitText || !submitSpinner || !error) {
+                    console.error("Required elements not found");
+                    return;
+                }
+
+                error.innerHTML = '';
+                
+                const inputs = document.querySelectorAll('#insert-form input, #insert-form select');
+                console.log("Found inputs:", inputs.length);
+                
+                // Validation
+                let hasError = false;
+                let errorMsg = '';
+                
+                for (let input of inputs) {
+                    const value = input.value.trim();
+                    const colType = columnsTypes.find(c => c.name === input.name);
+                    const type = colType ? colType.data_type.toUpperCase() : 'TEXT';
+                    const isRequired = input.required;
+
+                    console.log(`Validating ${input.name}: value="${value}", type="${type}", required=${isRequired}`);
+
+                    const validationError = validateValue(value, type, isRequired, input.name);
+
+                    if (validationError) {
+                        console.log("Validation error:", validationError);
+                        errorMsg = validationError;
+                        hasError = true;
+                        break;
+                    }
+                }
+
+                if (hasError) {
+                    error.innerHTML = `
+                        <div class="bg-red-500/20 border border-red-500 rounded-lg p-4 text-red-400">${errorMsg}</div>`;
+                    return;
+                }
+
+                const formData = {};
+                inputs.forEach(input => {
+                    if (input.name && input.name.trim() !== '' && input.value.trim() !== '') {
+                        formData[input.name] = input.value.trim();
+                    }
+                });
+
+                console.log('Form Data:', formData);
+
+                try {
+                    // Build request body in new format
+                    const requestBody = buildRequestBody(formData, tableName, columnsTypes);
+                    console.log('Request Body:', requestBody);
+
+                    // Show loading state
+                    submitBtn.disabled = true;
+                    submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+                    submitText.textContent = 'Inserting...';
+                    submitSpinner.classList.remove('hidden');
+
+                    console.log("Making POST request to http://localhost:1212/v1/insert");
+
+                    fetch('http://localhost:1212/v1/insert', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestBody)
+                    })
+                    .then(response => {
+                        console.log("Response received:", response);
+                        // Reset button state
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                        submitText.textContent = 'Insert Row';
+                        submitSpinner.classList.add('hidden');
+                        
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                throw new Error(`Server error (${response.status}): ${text || 'Unknown error'}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Success:', data);
+                        
+                        // Show success message
+                        error.innerHTML = 
+                            '<div class="bg-green-500/20 border border-green-500 rounded-lg p-4 text-green-400">Row inserted successfully!</div>';
+                        
+                        // Close the sidebar and refresh after delay
+                        setTimeout(() => {
+                            if (typeof closeInsertForm === 'function') {
+                                closeInsertForm();
+                            } else if (window.parent && typeof window.parent.closeInsertForm === 'function') {
+                                window.parent.closeInsertForm();
+                            }
+                            
+                            // Try to refresh the table data by triggering a reload
+                            if (window.parent && typeof window.parent.refreshCurrentTable === 'function') {
+                                window.parent.refreshCurrentTable();
+                            } else {
+                                // Fallback: reload the table editor content
+                                const tableEditorLink = document.querySelector('a[hx-get="/dashboard/table-editor"]');
+                                if (tableEditorLink) {
+                                    tableEditorLink.click();
+                                }
+                            }
+                            
+                        }, 1500);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        
+                        // Reset button state
+                        submitBtn.disabled = false;
+                        submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                        submitText.textContent = 'Insert Row';
+                        submitSpinner.classList.add('hidden');
+                        
+                        // Show error in form result area
+                        error.innerHTML = 
+                            '<div class="bg-red-500/20 border border-red-500 rounded-lg p-4 text-red-400">Error inserting row: ' + error.message + '</div>';
+                    });
+                } catch (err) {
+                    console.error('Error building request:', err);
+                    
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    submitText.textContent = 'Insert Row';
+                    submitSpinner.classList.add('hidden');
+                    
+                    error.innerHTML = 
+                        '<div class="bg-red-500/20 border border-red-500 rounded-lg p-4 text-red-400">Error: ' + err.message + '</div>';
+                }
+            }
+            
+            console.log("Insert form initialized successfully");
+        }
+
+        function validateValue(value, type, isRequired, fieldName) {
+            const isEmptyValue = (val) => {
+                if (val === null || val === undefined || val === '') return true;
+                if (typeof val === "string") return val.trim() === "";
+                return false;
+            };
+            
+            if (isRequired && isEmptyValue(value)) {
+                return `Error: ${fieldName} is required.`;
+            }
+            
+            if (isEmptyValue(value)) return null;
+
+            switch (type) {
+                case 'INTEGER':
+                    if (!/^-?\d+$/.test(value)) {
+                        return `Error: ${fieldName} must be an integer.`;
+                    }
+                    break;
+
+                case 'REAL':
+                case 'NUMERIC':
+                    if (!/^-?\d+(\.\d+)?$/.test(value)) {
+                        return `Error: ${fieldName} must be a real number.`;
+                    }
+                    break;
+
+                case 'TEXT':
+                    break;
+
+                case 'DATE':
+                case 'DATETIME':
+                case 'TIME':
+                case 'TIMESTAMP':
+                    if (isNaN(Date.parse(value))) {
+                        return `Error: ${fieldName} must be a valid date/time.`;
+                    }
+                    break;
+
+                case 'BLOB':
+                    if (!(value instanceof File || value instanceof Blob)) {
+                        return `Error: ${fieldName} must be a valid file.`;
+                    }
+                    if (value.size === 0) {
+                        return `Error: ${fieldName} cannot be an empty file.`;
+                    }
+                    break;
+            }
+
+            return null;
+        }
+
+        function buildRequestBody(formData, tableName, columnsTypes) {
+            if (!tableName) {
+                throw new Error("No table selected");
+            }
+            
+            const columns = Object.keys(formData);
+            const values = columns.map(col => {
+                const value = formData[col];
+                const colType = columnsTypes.find(c => c.name === col);
+                
+                if (!colType) return value;
+                
+                // Handle different data types
+                switch (colType.data_type.toUpperCase()) {
+                    case 'INTEGER':
+                    case 'REAL':
+                    case 'NUMERIC':
+                        return value;
+                    case 'TEXT':
+                    case 'VARCHAR':
+                    case 'CHAR':
+                    case 'DATE':
+                    case 'DATETIME':
+                    case 'TIMESTAMP':
+                    case 'TIME':
+                    case 'BLOB':
+                    default:
+                        return value;
+                }
+            });
+
+            return {
+                table: tableName,
+                columns: columns,
+                values: values
+            };
+        }
+        
+        // Start initialization
+        initializeForm();
+    })();
+</script>
