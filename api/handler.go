@@ -55,6 +55,7 @@ func (s *APIServer) Run() error {
 	// uncomment this when you start working on the client side routes like insert and other stuff
 	subrouter := router.PathPrefix("/v1").Subrouter()
 	subrouter.HandleFunc("/insert", InsertIntoTable).Methods("POST")
+	subrouter.HandleFunc("/select", SelectFromTable).Methods("GET")
 
 	adminRoute := router.PathPrefix("/admin").Subrouter()
 
