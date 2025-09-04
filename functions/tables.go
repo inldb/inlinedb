@@ -2,7 +2,9 @@ package functions
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/MultiX0/db-test/constants"
@@ -319,4 +321,292 @@ func InsertIntoTable(insertModel models.InsertModel) (string, error) {
 	}
 
 	return id.String(), nil
+}
+
+// ValidateColumnName checks if a column name is safe (no SQL injection)
+func ValidateColumnName(columnName string) error {
+	columnName = strings.TrimSpace(columnName)
+
+	if columnName == "" {
+		return fmt.Errorf("column name cannot be empty")
+	}
+
+	if columnName == "*" {
+		return nil
+	}
+
+	validIdentifier := regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+	if !validIdentifier.MatchString(columnName) {
+		return fmt.Errorf("invalid column name format: %s", columnName)
+	}
+
+	dangerousKeywords := []string{
+		"select", "insert", "update", "delete", "drop", "create", "alter",
+		"union", "exec", "execute", "script", "declare", "cast", "convert",
+		"information_schema", "sys", "master", "msdb", "tempdb",
+	}
+
+	lowerColumn := strings.ToLower(columnName)
+	for _, keyword := range dangerousKeywords {
+		if lowerColumn == keyword {
+			return fmt.Errorf("column name contains dangerous keyword: %s", columnName)
+		}
+	}
+
+	injectionPatterns := []string{
+		"'", "\"", ";", "--", "/*", "*/", "xp_", "sp_", "@@",
+	}
+
+	for _, pattern := range injectionPatterns {
+		if strings.Contains(lowerColumn, pattern) {
+			return fmt.Errorf("column name contains potentially dangerous characters: %s", columnName)
+		}
+	}
+
+	return nil
+}
+
+func ValidateColumns(tableName string, columns []string) error {
+
+	if len(columns) == 1 && columns[0] == "*" {
+		return nil
+	}
+
+	columnsPtr, err := GetTableColumns(tableName)
+	if err != nil {
+		return fmt.Errorf("failed to get table columns: %w", err)
+	}
+
+	if columnsPtr == nil {
+		return fmt.Errorf("no column information returned for table: %s", tableName)
+	}
+
+	actualColumnSet := make(map[string]bool)
+	for _, col := range *columnsPtr {
+		actualColumnSet[col.Name] = true
+	}
+
+	for _, requestedCol := range columns {
+		if err := ValidateColumnName(requestedCol); err != nil {
+			return err
+		}
+
+		if !actualColumnSet[requestedCol] {
+			return fmt.Errorf("column '%s' does not exist in table '%s'", requestedCol, tableName)
+		}
+	}
+
+	return nil
+}
+
+func ValidateOperator(operator string) error {
+	validOps := map[string]bool{
+		"eq": true, "ne": true, "gt": true, "lt": true,
+		"gte": true, "lte": true, "like": true, "in": true, "not_in": true,
+		"is_null": true, "is_not_null": true,
+	}
+
+	if !validOps[operator] {
+		return fmt.Errorf("invalid operator: %s", operator)
+	}
+	return nil
+}
+
+func BuildWhereClause(tableName string, filters []models.FilterGroup) (string, []any, error) {
+	if len(filters) == 0 {
+		return "", []any{}, nil
+	}
+
+	columnsPtr, err := GetTableColumns(tableName)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to get table columns: %w", err)
+	}
+
+	actualColumnSet := make(map[string]bool)
+	for _, col := range *columnsPtr {
+		actualColumnSet[col.Name] = true
+	}
+
+	var whereParts []string
+	var params []any
+
+	for _, group := range filters {
+		if len(group.Conditions) == 0 {
+			continue
+		}
+
+		logic := strings.ToUpper(group.Logic)
+		if logic != "AND" && logic != "OR" {
+			logic = "AND"
+		}
+
+		var conditionParts []string
+
+		for _, condition := range group.Conditions {
+			if err := ValidateColumnName(condition.Column); err != nil {
+				return "", nil, err
+			}
+
+			if !actualColumnSet[condition.Column] {
+				return "", nil, fmt.Errorf("filter column '%s' does not exist in table '%s'", condition.Column, tableName)
+			}
+
+			if err := ValidateOperator(condition.Operator); err != nil {
+				return "", nil, err
+			}
+
+			conditionSQL, conditionParams, err := buildCondition(condition)
+			if err != nil {
+				return "", nil, err
+			}
+
+			conditionParts = append(conditionParts, conditionSQL)
+			params = append(params, conditionParams...)
+		}
+
+		if len(conditionParts) > 0 {
+			groupClause := "(" + strings.Join(conditionParts, " "+logic+" ") + ")"
+			whereParts = append(whereParts, groupClause)
+		}
+	}
+
+	whereClause := strings.Join(whereParts, " AND ")
+	return whereClause, params, nil
+}
+
+func buildCondition(condition models.FilterCondition) (string, []any, error) {
+	column := condition.Column
+	operator := condition.Operator
+	value := condition.Value
+
+	switch operator {
+	case "eq":
+		return fmt.Sprintf("%s = ?", column), []any{value}, nil
+	case "ne":
+		return fmt.Sprintf("%s != ?", column), []any{value}, nil
+	case "gt":
+		return fmt.Sprintf("%s > ?", column), []any{value}, nil
+	case "lt":
+		return fmt.Sprintf("%s < ?", column), []any{value}, nil
+	case "gte":
+		return fmt.Sprintf("%s >= ?", column), []any{value}, nil
+	case "lte":
+		return fmt.Sprintf("%s <= ?", column), []any{value}, nil
+	case "like":
+		return fmt.Sprintf("%s LIKE ?", column), []any{value}, nil
+	case "is_null":
+		return fmt.Sprintf("%s IS NULL", column), []any{}, nil
+	case "is_not_null":
+		return fmt.Sprintf("%s IS NOT NULL", column), []any{}, nil
+	case "in":
+		values, ok := value.([]any)
+		if !ok {
+			return "", nil, fmt.Errorf("IN operator requires array of values")
+		}
+		if len(values) == 0 {
+			return "", nil, fmt.Errorf("IN operator requires at least one value")
+		}
+
+		placeholders := strings.Repeat("?,", len(values))
+		placeholders = placeholders[:len(placeholders)-1]
+
+		return fmt.Sprintf("%s IN (%s)", column, placeholders), values, nil
+	case "not_in":
+		values, ok := value.([]any)
+		if !ok {
+			return "", nil, fmt.Errorf("NOT IN operator requires array of values")
+		}
+		if len(values) == 0 {
+			return "", nil, fmt.Errorf("NOT IN operator requires at least one value")
+		}
+
+		placeholders := strings.Repeat("?,", len(values))
+		placeholders = placeholders[:len(placeholders)-1]
+
+		return fmt.Sprintf("%s NOT IN (%s)", column, placeholders), values, nil
+	default:
+		return "", nil, fmt.Errorf("unsupported operator: %s", operator)
+	}
+}
+
+func BuildSelectQuery(selectModel models.SelectModel) (string, []any, error) {
+	if len(selectModel.SelectedColumns) == 0 {
+		return "", nil, fmt.Errorf("no columns specified")
+	}
+
+	if err := ValidateColumns(selectModel.TableName, selectModel.SelectedColumns); err != nil {
+		return "", nil, err
+	}
+
+	whereClause, params, err := BuildWhereClause(selectModel.TableName, selectModel.Filters)
+	if err != nil {
+		return "", nil, err
+	}
+
+	query := fmt.Sprintf("SELECT %s FROM %s", strings.Join(selectModel.SelectedColumns, ", "), selectModel.TableName)
+
+	if whereClause != "" {
+		query += " WHERE " + whereClause
+	}
+
+	return query, params, nil
+}
+
+func SelectFromTable(selectModel models.SelectModel) ([]byte, error) {
+	if len(strings.TrimSpace(selectModel.TableName)) == 0 {
+		return nil, fmt.Errorf("you should enter the table name first to select")
+	}
+
+	query, params, err := BuildSelectQuery(selectModel)
+	if err != nil {
+		return nil, err
+	}
+
+	stmt, err := dbclass.DB.Prepare(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(params...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute query: %w", err)
+	}
+	defer rows.Close()
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get columns: %w", err)
+	}
+
+	var results []map[string]any
+
+	for rows.Next() {
+		values := make([]any, len(columns))
+		scanArgs := make([]any, len(columns))
+		for i := range values {
+			scanArgs[i] = &values[i]
+		}
+
+		if err := rows.Scan(scanArgs...); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+
+		rowMap := make(map[string]any)
+		for i, col := range columns {
+			rowMap[col] = values[i]
+		}
+		results = append(results, rowMap)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("row iteration error: %w", err)
+	}
+
+	jsonResult, err := json.Marshal(results)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal results: %w", err)
+	}
+
+	return jsonResult, nil
 }

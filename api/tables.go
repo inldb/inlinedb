@@ -79,3 +79,30 @@ func InsertIntoTable(w http.ResponseWriter, r *http.Request) {
 	})
 
 }
+
+func SelectFromTable(w http.ResponseWriter, r *http.Request) {
+	var selectModel models.SelectModel
+	if err := json.NewDecoder(r.Body).Decode(&selectModel); err != nil {
+		utils.RespondError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	results, err := functions.SelectFromTable(selectModel)
+	if err != nil {
+		utils.RespondError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var resultsMap []map[string]any
+	err = json.Unmarshal(results, &resultsMap)
+
+	if err != nil {
+		utils.RespondError(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string]any{
+		"message": "success",
+		"data":    resultsMap,
+	})
+}
